@@ -55,6 +55,7 @@ Knowing the destination makes the journey legible. As of mid-2026 the app is:
 - **Coroutines + Flow** end to end; zero RxJava.
 - **Jetpack Compose** UI (≈84 `*Screen.kt` files; only ~6 `*Fragment.kt` remain as thin hosts/edge cases).
 - **Compose Navigation** organized into per-feature graph builders behind a thin `AppNavHost`, fronted by per-feature navigator interfaces (composed into one `AppNavigator`) so screens never touch a raw `NavController`.
+- **Testing** at every layer: unit tests (MockK + Turbine) across all modules, Roborazzi screenshot tests, and a Hilt + `MockWebServer` end-to-end suite for the critical flows — with a Kover coverage ratchet enforced in CI.
 
 **Key libraries**: Retrofit 3 + OkHttp 5, Room 2.8, Coroutines 1.11, Compose Navigation 2.9,
 Hilt 2.59, Arrow 2.x (functional error handling), Lottie-Compose, Maps-Compose, a Compose
@@ -64,27 +65,28 @@ rich-text editor, SQLCipher, Firebase (Analytics/Crashlytics/Perf/Messaging), Pe
 
 ## 2. Timeline at a glance
 
-| Period | Phase | Outcome |
-|---|---|---|
+| Period    | Phase | Outcome |
+|-----------|---|---|
 | 2018–2019 | Foundation | Fragment + bottom-nav app, custom navigation + Toolbar Manager |
-| 2019-04 | **AndroidX migration** | Support libs → AndroidX |
-| 2019-05 | RxJava → **RxJava2** | Reactive baseline modernized |
-| 2021-03 | **Kotlin synthetics → View Binding** | `kotlin-android-extensions` plugin removed |
-| 2021 | Dependency hygiene | Kotlin upgrade, ViewPager→ViewPager2, Room/Glide upgrades, mavenCentral, okhttp/Firebase deprecations |
-| 2022-03 | Pure Dagger → **Hilt** | DI modernized |
+| 2019-04   | **AndroidX migration** | Support libs → AndroidX |
+| 2019-05   | RxJava → **RxJava2** | Reactive baseline modernized |
+| 2021-03   | **Kotlin synthetics → View Binding** | `kotlin-android-extensions` plugin removed |
+| 2021      | Dependency hygiene | Kotlin upgrade, ViewPager→ViewPager2, Room/Glide upgrades, mavenCentral, okhttp/Firebase deprecations |
+| 2022-03   | Pure Dagger → **Hilt** | DI modernized |
 | 2022-04→07 | RxJava → **Coroutines/Flow** | RxJava fully removed |
-| 2022-11 | Groovy → **Kotlin DSL** | Build scripts in Kotlin |
-| 2022-11+ | **Module extraction** | `:domain`, `:data-repository`, `:data-local` (Clean Arch) |
-| 2023-04 | **AGP 8** | Toolchain bump |
+| 2022-11   | Groovy → **Kotlin DSL** | Build scripts in Kotlin |
+| 2022-11+  | **Module extraction** | `:domain`, `:data-repository`, `:data-local` (Clean Arch) |
+| 2023-04   | **AGP 8** | Toolchain bump |
 | 2023-10→11 | Moxy MVP → **ViewModel (MVVM)** | Moxy removed, R8 full mode |
-| 2023-10+ | **First Compose screens** | Leaderboard, curriculum progress |
-| 2024-02 | **Compose Theme + design system** | Reusable components, theming |
+| 2023-10+  | **First Compose screens** | Leaderboard, curriculum progress |
+| 2024-02   | **Compose Theme + design system** | Reusable components, theming |
 | 2024–2025 | **Screen-by-screen Compose migration** | ~all feature flows moved to Compose |
-| 2024-06 | **Version Catalog + KSP** | Dependency mgmt + faster annotation processing |
-| 2025-05 | **Full Compose Navigation** | per-feature nav graphs, deep links, backstack |
-| 2025 | **Compose dialogs & bottom sheets** | Remaining XML dialogs replaced |
-| 2026-01 | **AGP 9** + Gradle daemon | Latest toolchain |
+| 2024-06   | **Version Catalog + KSP** | Dependency mgmt + faster annotation processing |
+| 2025-05   | **Full Compose Navigation** | per-feature nav graphs, deep links, backstack |
+| 2025      | **Compose dialogs & bottom sheets** | Remaining XML dialogs replaced |
+| 2026-01   | **AGP 9** + Gradle daemon | Latest toolchain |
 | 2026-05→06 | **Navigation wrapper (`AppNavigator`)** | Per-feature navigator interfaces; screens decoupled from `NavController` |
+| 2026-01→06 | **Test suite + coverage gates** | Unit (all modules) · E2E (Hilt + mock backend) · screenshot · Kover ratchet |
 
 ---
 
@@ -311,9 +313,9 @@ cases to domain module`, `clean up domain module`, plus a full unit-test build-o
 3. Split persistence into `:data-local` (Room/SQLCipher).
 4. Wire it all through **Hilt** (already in place from Phase 4 — this is why Hilt came first).
 5. Add **per-module unit tests** as each module gains a clean boundary (MockK, Turbine for Flow).
-   In practice this only happened for the **data modules** (`:data-repository`, `:data-local`); the
-   `:domain` use cases and `:app` ViewModels remained untested — a gap documented in
-   [`lessons-and-tradeoffs.md`](./lessons-and-tradeoffs.md).
+   The data modules (`:data-repository`, `:data-local`) gained theirs first — clean boundaries make
+   unit testing cheap — with the `:domain` use-case and `:app` ViewModel suites following as a
+   dedicated testing phase (Phase 14).
 
 **Challenges:**
 - Breaking circular dependencies — the `remove references from data-repo module in app module`
@@ -323,9 +325,10 @@ cases to domain module`, `clean up domain module`, plus a full unit-test build-o
 
 **Lesson:** Modularize *after* DI is in place, and extract the dependency-free `:domain` core
 first. Module boundaries are where unit testing finally becomes cheap — and the data modules took
-advantage of it. The missed opportunity was *not* extending the same discipline leftward to
-`:domain` and `:app` during the Rx→Coroutines and Moxy→ViewModel migrations, which is exactly where
-a safety net would have caught the regressions that instead reached release.
+advantage of it first, with the same discipline extended leftward to `:domain` and `:app` as a
+dedicated testing phase (Phase 14). During the Rx→Coroutines and Moxy→ViewModel migrations
+themselves those layers had no net yet — which is exactly where the regressions that reached release
+lived, and the case for building the net into the workflow.
 
 ---
 
@@ -603,7 +606,49 @@ the AGP 8 and 9 jumps routine instead of multi-week ordeals.
 
 ---
 
-## 16. Cross-cutting principles (the transferable playbook)
+## 16. Phase 14 — Testing & quality gates (2026-01→2026-06)
+
+With the architecture modern — Clean Architecture modules, Hilt, Coroutines, MVVM, Compose — the
+closing move was to build the test net the migrations had lacked, across every layer, and wire it into
+CI so the classes of regression this history kept hitting couldn't reach release unseen.
+
+**Target:** A layered test suite plus an enforced coverage gate — covering the silent parallelism loss
+(Phase 5), the R8/release-only crashes, and the state-reduction logic that MVVM concentrated in
+ViewModels.
+
+**What was built:**
+- **Unit tests, every module.** `:domain` use cases and `:app` ViewModels — the most-refactored layers
+  — alongside `:data-repository` repositories/mappers and `:data-local` DAOs. **MockK** for fakes,
+  **Turbine** for `Flow`/`uiState` emissions, Truth for assertions, Robolectric for the Android-touching
+  cases. The Phase 5 parallelism regression is pinned by a test that fails if the calls run
+  sequentially.
+- **Screenshot tests.** Roborazzi golden-image tests over the key Compose screens, run as JVM unit tests
+  (goldens recorded/verified via `-Droborazzi.test.*`), so visual regressions surface in review.
+- **End-to-end instrumentation.** A `BaseE2ETest` harness boots an in-process `MockWebServer` that
+  replays captured backend fixtures, points Retrofit at it, seeds a logged-in session into Room, and
+  hosts the *real* `AppNavHost` inside a Hilt test activity — then drives the critical flows and asserts
+  on both what rendered (`awaitText`) and what the app submitted (`awaitRequest`).
+- **Coverage as a ratchet.** Kover merges debug-variant coverage across all modules (generated
+  Hilt/Compose code excluded to keep the number honest) behind a **baseline-and-ratchet** gate: the
+  bound only moves up — never down to push a PR through.
+- **CI gates.** Separate workflows run the unit tests (+ coverage verify), the E2E suite, and the
+  screenshot tests on every PR.
+
+**Challenges & gotchas:**
+- **Instrumented E2E can't feed Kover** (it's JVM-only), so coverage is measured from the unit +
+  screenshot layer and the E2E suite stands as its own flow gate.
+- **Deterministic backends.** Real network makes E2E flaky; replaying captured fixtures through
+  `MockWebServer` makes the flows reproducible.
+- **Roborazzi without its Gradle plugin** (for AGP-9 compatibility) — the `roborazzi.test.*` properties
+  are forwarded into the forked test JVM instead.
+
+**Lesson:** Put the tests where the value is — the layers you refactored hardest and the flows that
+generate the most crash reports — and encode them as a *gate*, not a suggestion. A coverage ratchet
+plus per-concern CI workflows turn "we should test" into "the PR doesn't merge otherwise."
+
+---
+
+## 17. Cross-cutting principles (the transferable playbook)
 
 1. **AndroidX / toolchain currency is the foundation.** Nothing modern installs on stale
    support libs or an AGP three majors behind. Pay this continuously.
@@ -630,7 +675,8 @@ the AGP 8 and 9 jumps routine instead of multi-week ordeals.
    rules, ViewPager2 crash, lifecycle double-fires — the cleanup commit is part of the migration,
    not a failure of it. Better still, pair the stabilization pass with tests *written before* the
    migration — the regressions that reached release here (View Binding crashes, R8 keep rules,
-   parallelism loss) were all in the layers that had no tests.
+   parallelism loss) were all in the layers that had no tests at the time, exactly the layers the
+   testing phase (Phase 14) covers.
 9. **Test the *release* build.** R8 full mode only bites in minified builds; reflection-based libs
    need keep rules. Debug-only verification hides the worst class of regressions.
 10. **Watch for silent behavioral regressions, not just compile errors.** The Rx→Coroutines
@@ -639,7 +685,7 @@ the AGP 8 and 9 jumps routine instead of multi-week ordeals.
 
 ---
 
-## 17. Migration order template (reuse this on the next legacy app)
+## 18. Migration order template (reuse this on the next legacy app)
 
 ```
 0.  Get on AndroidX + a current-ish AGP/Kotlin/Gradle baseline.
@@ -658,6 +704,8 @@ the AGP 8 and 9 jumps routine instead of multi-week ordeals.
 11. Put an AppNavigator abstraction in front of navigation.    [decouple + testable capstone]
 12. Ride the toolchain: AGP 8 → 9, Kotlin 2.x, R8 full mode    [continuous, test release builds]
     (+ keep rules), edge-to-edge, strong skipping.
+13. Build the test net: unit (use cases + ViewModels), E2E,    [quality capstone]                                                                                       
+    and screenshot — behind a coverage ratchet in CI.   
 ```
 
 ---

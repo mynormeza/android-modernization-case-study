@@ -33,6 +33,7 @@ every commit.
 | **DI** | Hand-written Dagger 2 | Hilt |
 | **Architecture** | Monolithic `:app` | Multi-module Clean Architecture (`:app` / `:domain` / `:data-repository` / `:data-local`) |
 | **Build** | Groovy Gradle, support libs | Kotlin DSL + Version Catalog + KSP, AGP 9 / Kotlin 2.x / JVM 17 |
+| **Testing** | Minimal | Unit (all modules) + E2E (Hilt + mock backend) + screenshot · coverage-gated in CI |
 
 **Scale:** ~90 screens migrated · 4 modules · ~940 Kotlin source files · 8-year-old codebase ·
 **~5-year modernization (2021→2026)** · zero feature freeze.
@@ -105,6 +106,8 @@ flowchart TD
     P8 --> P9["Compose Navigation<br/>(2025)"]
     P9 --> P10["AppNavigator abstraction<br/>(2026)"]
     P6 --> P11["AGP 8 → 9 / Kotlin 2.x<br/>(2023, 2026)"]
+    P9 --> P12["Test suite + coverage gates<br/>(2026)"]
+    P5 --> P12  
     classDef pre fill:#eee,stroke:#bbb,color:#888,stroke-dasharray:4 3;
 ```
 
@@ -148,8 +151,10 @@ explicit concurrency with `async`/`awaitAll` on every multi-source screen.
 
 The lesson: a "translate each call site" migration is *correctness-complete but not
 performance-complete*. You have to re-derive **semantics** (concurrency, error handling,
-cancellation), not just syntax. This class of bug is exactly why the next thing I'd add is tests on
-the layers that were refactored most — see below.
+cancellation), not just syntax. This class of bug is why the modernization closed with a
+characterization-test layer on exactly those hotspots — use-case tests in `:domain`, ViewModel tests
+(MockK + Turbine) in `:app`, and E2E on the critical flows — so a regression like this one fails a
+test instead of shipping. → See [`snippets/testing.kt`](snippets/testing.kt)
 
 ---
 
@@ -162,9 +167,9 @@ weak. The full register is in [`docs/lessons-and-tradeoffs.md`](docs/lessons-and
   Compose Nav migration but it's a known smell — decode failures are caught and reported to
   Crashlytics (it fails in production and falls back to empty objects). The fix is type-safe routes
   / passing IDs and re-fetching. → [`snippets/navigation-tradeoff.md`](snippets/navigation-tradeoff.md)
-- **The most-refactored layers have the fewest tests.** All unit tests live in the data modules;
-  `:app` (ViewModels) and `:domain` (use cases) have none — which is exactly where the Rx→Coroutines
-  and MVP→MVVM regressions lived. The highest-value next investment is characterization tests there.
+- **Cross-cutting events run through process-global singletons** (`EventBus`, `SnackbarController`).
+  The implementation is fine — a lifecycle-aware `SharedFlow` — but the scope is broad; I'd move
+  screen-local events to per-ViewModel channels and reserve a global bus for truly app-wide signals.
 
 I treat this honesty as a feature of the portfolio, not a liability: it's the part that shows
 engineering judgment.
@@ -176,7 +181,8 @@ engineering judgment.
 `Kotlin` · `Jetpack Compose` · `Compose Navigation` · `Coroutines & Flow` · `Hilt / Dagger` ·
 `Clean Architecture & modularization` · `MVVM` · `Room` · `Retrofit / OkHttp` · `Gradle (Kotlin DSL,
 Version Catalogs, KSP)` · `R8 / ProGuard` · `AGP & toolchain upgrades` · `incremental migration
-strategy` · `production debugging` · `technical writing & decision documentation`
+strategy` · `production debugging` · `testing (unit · E2E · screenshot) & coverage gating` ·
+`technical writing & decision documentation`
 
 ---
 
