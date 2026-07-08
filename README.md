@@ -106,7 +106,7 @@ flowchart TD
     P8 --> P9["Compose Navigation<br/>(2025)"]
     P9 --> P10["AppNavigator abstraction<br/>(2026)"]
     P6 --> P11["AGP 8 → 9 / Kotlin 2.x<br/>(2023, 2026)"]
-    P9 --> P12["Test suite + coverage gates<br/>(2026)"]
+    P10 --> P12["Test suite + coverage gates<br/>(2026)"]
     P5 --> P12  
     classDef pre fill:#eee,stroke:#bbb,color:#888,stroke-dasharray:4 3;
 ```
