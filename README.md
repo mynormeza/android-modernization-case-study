@@ -4,7 +4,7 @@ A production Android app — sports coaching & player development, used by coach
 families — that I helped take from a 2018-era codebase to a modern Jetpack stack, **without ever
 freezing feature delivery.**
 
-> Built for a client. The app's name, package, commit hashes, and other identifying details are
+> Built for a client of my outsourcing employer. The app's name, package, commit hashes, and other identifying details are
 > withheld for confidentiality; everything else (scale, sequencing, code excerpts, trade-offs) is
 > real and I can walk through it in detail in conversation.
 
@@ -154,7 +154,7 @@ performance-complete*. You have to re-derive **semantics** (concurrency, error h
 cancellation), not just syntax. This class of bug is why the modernization closed with a
 characterization-test layer on exactly those hotspots — use-case tests in `:domain`, ViewModel tests
 (MockK + Turbine) in `:app`, and E2E on the critical flows — so a regression like this one fails a
-test instead of shipping. → See [`snippets/testing.kt`](snippets/testing.kt)
+test instead of shipping.
 
 ---
 
