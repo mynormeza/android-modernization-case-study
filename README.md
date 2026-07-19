@@ -196,3 +196,13 @@ tried to describe the *engineering* rather than overclaim individual ownership. 
 through specific commits, decisions, and trade-offs in detail — they come up in interviews
 regularly, which is part of why I wrote this down. (Commit references are redacted here for
 client confidentiality, but the history is available to walk through live.)
+
+---
+
+## License
+
+© 2026 Mynor Meza. This case study — all documentation and code snippets in this repository — is
+licensed under [Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International
+(CC BY-NC-ND 4.0)](https://creativecommons.org/licenses/by-nc-nd/4.0/). You may share it verbatim
+with attribution; you may not use it commercially, modify it, or present it as your own work.
+See [`LICENSE`](LICENSE) for the full text.
